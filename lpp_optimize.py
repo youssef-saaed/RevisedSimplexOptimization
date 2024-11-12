@@ -69,7 +69,7 @@ class RevisedSimplexOptimize:
         self.A = self.A[:, :-self.A.shape[0]]
         
         # Check for infeasibility
-        if np.any(self.b_v >= self.A.shape[1]) and self.status == 0:
+        if np.any(self.b_v >= self.A.shape[1]) and (self.status == 0 or self.status == 2):
             self.status = 3
             
         # Finding the optimal solution    
@@ -90,8 +90,9 @@ class RevisedSimplexOptimize:
     
     def _phase_two(self, cost = None):
         # Termination if status not in progress
-        if self.status != 0:
+        if not(self.status in [0, 2, 3]):
             return
+        
         # If the cost function is not given then it will use problem cost function else it will minimize cost function came from argument
         if type(cost) != np.ndarray:
             cost = self.cost
@@ -103,15 +104,16 @@ class RevisedSimplexOptimize:
         # This loop will work until the reduced cost for each non basic variable >= 0
         while r_d.min() < 0:
             # Determine which will be the new basic variable and calculate its x_k = B^-1 @ A_k
-            new_basic_var =d[np.argmin(r_d)]
+            new_basic_var = d[np.argmin(r_d)]
             x1 = np.matmul(self.B_inv, self.A[:, new_basic_var])
             
             # Calculate ratio between x0 and x1, determine which less positive ratio to be our pivot and check for unbounded solution 
             ratio = self.x0 / x1
             ratio[np.argwhere(ratio < 0).reshape(-1)] = np.inf
-            if ratio.min() == np.inf:
+            if ratio.min() == np.inf and self.status == 0:
                 self.status = 2
-                return            
+                return
+                         
             pivot = np.argmin(ratio)
             
             # Pivot row update for B^-1 and x0
@@ -138,8 +140,6 @@ class RevisedSimplexOptimize:
             
     def __result_dict(self):
         # Special cases output based on status
-        if self.status == 2:
-            return dict(sol = "Unbounded")
         if self.status == 3:
             return dict(sol = "Infeasible")
         if self.status == 4:
@@ -147,6 +147,8 @@ class RevisedSimplexOptimize:
         
         # Construct result dictionary of original variable from basic variables and their values
         results = dict()
+        if self.status == 2:
+            results = dict(sol = "Unbounded")
         for x, val in zip(self.b_v, self.x0):
             if x < self.vars:
                 results[f"x{x + 1}"] = val
