@@ -1,3 +1,9 @@
+# Authors:
+# - Adham Ashraf 
+# - Seif Mahdy
+# - Yousef Moustafa
+# Created for educational purposes under the supervision of Dr. Ahmed Abdelsamea and Eng. Hossam Fathy :)
+
 import numpy as np
 
 def LPP_Form(A_ub, b_ub, A_eq, b_eq):
