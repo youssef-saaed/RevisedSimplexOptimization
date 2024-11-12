@@ -96,55 +96,63 @@ class RevisedSimplexOptimize:
     
         # This loop will work until the reduced cost for each non basic variable >= 0
         while r_d.min() < 0:
-            # Cal
+            # Determine which will be the new basic variable and calculate its x_k = B^-1 @ A_k
             new_basic_var =d[np.argmin(r_d)]
             x1 = np.matmul(self.B_inv, self.A[:, new_basic_var])
             
-            
+            # Calculate ratio between x0 and x1, determine which less positive ratio to be our pivot and check for unbounded solution 
             ratio = self.x0 / x1
             ratio[np.argwhere(ratio < 0).reshape(-1)] = np.inf
             if ratio.min() == np.inf:
                 self.status = 2
-                return
-                        
+                return            
             pivot = np.argmin(ratio)
             
+            # Pivot row update for B^-1 and x0
             self.B_inv[pivot] /= x1[pivot]
             self.x0[pivot] /= x1[pivot]
             x1[pivot] = 1
             
+            # Remaining rows update for B^-1 and x0
             for i in range(x1.shape[0]):
                 if i == pivot: continue
                 self.B_inv[i] += self.B_inv[pivot] * -x1[i]
                 self.x0[i] += self.x0[pivot] * -x1[i]     
                 x1[i] = 0
             
+            # Update basic variables and non basic variables sets and calculate reduced cost for non basic variables
             self.b_v[pivot] = new_basic_var
             d = np.setdiff1d(np.arange(self.A.shape[1]), self.b_v)
             r_d = cost[d] - np.matmul(np.matmul(cost[self.b_v], self.B_inv), self.A[:, d])
             
+            # Check for degenerate solution
             if 0 in self.x0:
                 self.status = 4
                 return
             
     def __result_dict(self):
+        # Special cases output based on status
         if self.status == 2:
             return dict(sol = "Unbounded")
         if self.status == 3:
             return dict(sol = "Infeasible")
         if self.status == 4:
             return dict(sol = "Degeneracy")
+        
+        # Construct result dictionary of original variable from basic variables and their values
         results = dict()
         for x, val in zip(self.b_v, self.x0):
             if x < self.vars:
                 results[f"x{x + 1}"] = val
 
+        # Adding original variable from non basic variables and their values and add function value after calculating it using cTx
         x = np.zeros(self.vars, dtype=float)
         for i in range(self.vars):
             if f"x{i + 1}" not in results:
                 results[f"x{i + 1}"] = 0.
             x[i] = results[f"x{i + 1}"]
         results["fun"] = np.dot(self.cost[:self.vars], x)
+        
         return results
             
             
